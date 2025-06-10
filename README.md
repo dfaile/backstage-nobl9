@@ -20,9 +20,12 @@ The bot uses the official Nobl9 SDK configuration system. You can configure it i
 
 Create `~/.nobl9/config.toml`:
 ```toml
-defaultContext = "daniel"
-
-url = "https://app.nobl9.com"
+defaultContext = "default"
+[contexts]
+  [contexts.daniel]
+    clientId = "YOUR_CLIENT_ID"
+    clientSecret = "YOUR_CLIENT_SECRET"
+    url = "https://app.nobl9.com"
 ```
 
 #### Option B: Environment Variables
