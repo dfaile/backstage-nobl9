@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+build/
+bin/
+
+# Test files
+tests/
+*.test
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+.DS_Store
+*.log 
