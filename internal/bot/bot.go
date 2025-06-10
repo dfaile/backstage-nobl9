@@ -1,8 +1,10 @@
 package bot
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -86,7 +88,7 @@ func NewBot(nobl9Client *nobl9.Client, commands *command.CommandRegistry) *Bot {
 		})
 	}
 
-	logger, err := logging.NewLogger(logging.LevelInfo)
+	logger, err := logging.NewLogger(logging.LevelWarn)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create logger: %v", err))
 	}
@@ -114,12 +116,22 @@ func (b *Bot) HandleMessage(conversationID string, message string) (string, erro
 	ctx := context.WithValue(context.Background(), "conversation_id", conversationID)
 	logger := b.logger.WithContext(ctx)
 
+	// Get or create conversation state
 	state, exists := b.GetConversationState(conversationID)
 	if !exists {
-		logger.Error("Failed to get conversation state",
-			logging.F("error", "conversation not found"),
-		)
-		return "", errors.NewNotFoundError("conversation not found", nil)
+		// Initialize new conversation state
+		state = &ConversationState{
+			UserRoles:   make(map[string][]string),
+			LastUpdated: time.Now(),
+		}
+		b.mu.Lock()
+		b.state[conversationID] = state
+		b.mu.Unlock()
+		
+		// Welcome new user
+		if strings.TrimSpace(message) == "" || message == "help" || message == "start" {
+			return b.getWelcomeMessage(), nil
+		}
 	}
 
 	// Handle interactive responses
@@ -135,17 +147,13 @@ func (b *Bot) HandleMessage(conversationID string, message string) (string, erro
 		return response, nil
 	}
 
-	// Handle commands
-	cmd, args, err := command.ParseCommand(message)
-	if err != nil {
-		logger.Error("Failed to parse command",
-			logging.F("error", err),
-			logging.F("message", message),
-		)
-		return "", err
+	// Handle help command specifically
+	if strings.ToLower(strings.TrimSpace(message)) == "help" {
+		return b.getHelpMessage(), nil
 	}
 
-	if cmd != nil {
+	// Handle commands
+	if cmd, args := b.parseCommand(message); cmd != nil {
 		logger.Info("Handling command",
 			logging.F("command", cmd.Name),
 			logging.F("args", args),
@@ -154,13 +162,148 @@ func (b *Bot) HandleMessage(conversationID string, message string) (string, erro
 	}
 
 	// Handle default message
-	return b.handleDefaultMessage(ctx, state, message)
+	return b.handleNaturalLanguage(message), nil
+}
+
+// parseCommand parses user input into a command and arguments
+func (b *Bot) parseCommand(input string) (*command.Command, []string) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil, nil
+	}
+
+	// Split into fields
+	fields := strings.Fields(input)
+	if len(fields) == 0 {
+		return nil, nil
+	}
+
+	// Get command name (with or without /)
+	cmdName := fields[0]
+	if strings.HasPrefix(cmdName, "/") {
+		cmdName = strings.TrimPrefix(cmdName, "/")
+	}
+	
+	args := fields[1:]
+
+	// Look up the command in the registry
+	cmd, exists := b.commands.Get(cmdName)
+	if !exists {
+		return nil, nil
+	}
+
+	return cmd, args
+}
+
+// getWelcomeMessage returns a friendly welcome message
+func (b *Bot) getWelcomeMessage() string {
+	return `👋 Hello! I'm your Nobl9 Project Bot. I can help you:
+
+🏗️  **Create new projects** - Just say "create project" or "new project"
+👥 **Assign user roles** - Say "assign role" to manage user permissions
+📋 **List projects** - Say "list projects" to see available projects
+
+**Quick start:**
+• Type "create project" to create a new Nobl9 project
+• Type "help" anytime to see this message
+• Type "quit" or "exit" to leave
+
+What would you like to do?`
+}
+
+// getHelpMessage returns detailed help information
+func (b *Bot) getHelpMessage() string {
+	return `🤖 **Nobl9 Project Bot Help**
+
+**Available Commands:**
+• **create-project** (or "create", "new") - Create a new Nobl9 project
+• **assign-role** (or "assign", "role") - Assign roles to users
+• **list-projects** (or "list", "ls") - List available projects
+• **help** - Show this help message
+
+**Natural Language:**
+You can also try saying things like:
+• "I want to create a new project"
+• "Create a project called my-service"
+• "Help me make a project"
+• "Assign roles to users"
+
+**Examples:**
+• create-project my-awesome-service
+• assign-role my-project user@example.com
+
+Type anything to get started!`
+}
+
+// handleNaturalLanguage tries to understand natural language input
+func (b *Bot) handleNaturalLanguage(message string) string {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	
+	// Project creation keywords
+	if strings.Contains(msg, "create") && (strings.Contains(msg, "project") || strings.Contains(msg, "new")) {
+		return `Great! Let's create a new project. 
+
+You can use the command: **create-project <name>**
+
+For example:
+• create-project my-service
+• create-project analytics-dashboard
+
+Or just type "create-project" and I'll guide you through it step by step.`
+	}
+	
+	// Role assignment keywords
+	if strings.Contains(msg, "assign") || strings.Contains(msg, "role") || strings.Contains(msg, "user") {
+		return `I can help you assign roles to users!
+
+Use the command: **assign-role <project> <user-email>**
+
+For example:
+• assign-role my-project user@example.com
+
+Available roles include:
+• Project Owner
+• Project Editor  
+• Project User`
+	}
+	
+	// List projects keywords
+	if strings.Contains(msg, "list") || strings.Contains(msg, "show") || strings.Contains(msg, "projects") {
+		return `To see all available projects, use: **list-projects**`
+	}
+	
+	// Default helpful response
+	return fmt.Sprintf(`I'm not sure what you mean by "%s". 
+
+Here are some things you can try:
+• **create-project** - Create a new project
+• **assign-role** - Assign user roles
+• **list-projects** - List available projects  
+• **help** - Show detailed help
+
+Or try describing what you want to do in your own words!`, message)
 }
 
 func (b *Bot) handlePromptResponse(ctx context.Context, state *ConversationState, response string) (string, error) {
 	logger := b.logger.WithContext(ctx)
 
 	switch state.CurrentStep {
+	case "project_selection":
+		state.ProjectName = response
+		state.CurrentStep = "role_user"
+		
+		logger.Info("Project selected for role assignment",
+			logging.F("project", response),
+		)
+		
+		prompt := interactive.NewPrompt(
+			fmt.Sprintf("Please enter the user's email for project '%s':", response),
+			nil,
+			"",
+		)
+		state.PendingPrompt = prompt
+		return prompt.Format(), nil
+		
 	case "project_name":
 		// Validate project name with retry
 		var available bool
@@ -413,84 +556,29 @@ func (b *Bot) handlePromptResponse(ctx context.Context, state *ConversationState
 func (b *Bot) handleCommand(ctx context.Context, state *ConversationState, cmd *command.Command, args []string) (string, error) {
 	logger := b.logger.WithContext(ctx)
 
+	// Special handling for commands that need interactive flows
 	switch cmd.Name {
-	case "help":
-		return command.HelpCommand(b, args)
-
 	case "create-project":
-		logger.Info("Starting project creation")
-		state.Reset()
-		state.CurrentStep = "project_name"
-		prompt := interactive.NewPrompt(
-			"Please enter a project name:",
-			nil,
-			"",
-		)
-		state.PendingPrompt = prompt
-		return prompt.Format(), nil
-
-	case "assign-role":
-		if len(args) < 1 {
-			logger.Warn("Missing project name in assign role command")
-			return "Please specify a project name.", nil
-		}
-		logger.Info("Starting role assignment",
-			logging.F("project", args[0]),
-		)
-		state.Reset()
-		state.ProjectName = args[0]
-		state.CurrentStep = "role_user"
-		prompt := interactive.NewPrompt(
-			"Please enter the user's email:",
-			nil,
-			"",
-		)
-		state.PendingPrompt = prompt
-		return prompt.Format(), nil
-
-	case "list-projects":
-		return command.ListProjectsCommand(b, args)
-
-	default:
-		return command.DefaultCommand(b, args)
-	}
-}
-
-func (b *Bot) handleDefaultMessage(ctx context.Context, state *ConversationState, message string) (string, error) {
-	logger := b.logger.WithContext(ctx)
-
-	switch state.CurrentStep {
-	case "role_user":
-		// Validate user with retry
-		var exists bool
-		var validateErr error
-		attempts := 0
-		for {
-			exists, validateErr = b.ValidateUser(message)
-			if validateErr == nil {
-				break
-			}
-			if !recovery.ShouldRetry(validateErr, attempts) {
-				logger.Error("Failed to validate user",
-					logging.F("error", validateErr),
-					logging.F("attempts", attempts),
-				)
-				return "", validateErr
-			}
-			logger.Warn("Retrying user validation",
-				logging.F("error", validateErr),
-				logging.F("attempts", attempts),
-			)
-			time.Sleep(recovery.GetRetryDelay(validateErr))
-			attempts++
-		}
-
-		if !exists {
-			logger.Info("User not found",
-				logging.F("user", message),
-			)
+		if len(args) == 0 {
+			// Start interactive flow
+			logger.Info("Starting interactive project creation")
+			state.Reset()
+			state.CurrentStep = "project_name"
 			prompt := interactive.NewPrompt(
-				"User not found. Please enter a valid email:",
+				"Please enter a project name:",
+				nil,
+				"",
+			)
+			state.PendingPrompt = prompt
+			return prompt.Format(), nil
+		} else {
+			// Project name provided, go to description step
+			logger.Info("Starting project creation with name", logging.F("name", args[0]))
+			state.Reset()
+			state.ProjectName = args[0]
+			state.CurrentStep = "project_description"
+			prompt := interactive.NewPrompt(
+				fmt.Sprintf("Please provide a description for project '%s':", args[0]),
 				nil,
 				"",
 			)
@@ -498,107 +586,60 @@ func (b *Bot) handleDefaultMessage(ctx context.Context, state *ConversationState
 			return prompt.Format(), nil
 		}
 
-		state.RoleUser = message
-		state.CurrentStep = "role_type"
-
-		// Prompt for role type
-		prompt := interactive.NewPrompt(
-			"Please select a role type:",
-			[]string{"admin", "editor", "viewer"},
-			"viewer",
-		)
-		state.PendingPrompt = prompt
-		return prompt.Format(), nil
-
-	case "role_type":
-		// Validate role type
-		validRoles := []string{"admin", "editor", "viewer"}
-		valid := false
-		for _, role := range validRoles {
-			if strings.EqualFold(message, role) {
-				valid = true
-				state.RoleType = role
-				break
-			}
-		}
-
-		if !valid {
-			logger.Info("Invalid role type",
-				logging.F("role", message),
-			)
+	case "assign-role":
+		if len(args) == 0 {
+			// Start interactive flow from project selection
+			logger.Info("Starting interactive role assignment")
+			state.Reset()
+			state.CurrentStep = "project_selection"
 			prompt := interactive.NewPrompt(
-				"Invalid role type. Please select from: admin, editor, viewer",
-				validRoles,
-				"viewer",
+				"Please enter the project name:",
+				nil,
+				"",
+			)
+			state.PendingPrompt = prompt
+			return prompt.Format(), nil
+		} else if len(args) == 1 {
+			// Project provided, ask for user
+			logger.Info("Starting role assignment for project", logging.F("project", args[0]))
+			state.Reset()
+			state.ProjectName = args[0]
+			state.CurrentStep = "role_user"
+			prompt := interactive.NewPrompt(
+				fmt.Sprintf("Please enter the user's email for project '%s':", args[0]),
+				nil,
+				"",
+			)
+			state.PendingPrompt = prompt
+			return prompt.Format(), nil
+		} else {
+			// Both project and user provided, ask for role
+			logger.Info("Starting role selection", 
+				logging.F("project", args[0]),
+				logging.F("user", args[1]),
+			)
+			state.Reset()
+			state.ProjectName = args[0]
+			state.RoleUser = args[1]
+			state.CurrentStep = "role_type"
+			prompt := interactive.NewPrompt(
+				fmt.Sprintf("Please select a role for user '%s' in project '%s':", args[1], args[0]),
+				[]string{"admin", "member", "viewer"},
+				"member",
 			)
 			state.PendingPrompt = prompt
 			return prompt.Format(), nil
 		}
 
-		// Show confirmation
-		confirm := interactive.NewConfirmation(
-			fmt.Sprintf("Assign role '%s' to user '%s' in project '%s'?", state.RoleType, state.RoleUser, state.ProjectName),
-			true,
-		)
-		state.PendingPrompt = confirm
-		return confirm.Format(), nil
-
-	case "confirm_role":
-		confirm, ok := state.PendingPrompt.(*interactive.Confirmation)
-		if !ok {
-			return "", fmt.Errorf("invalid prompt type: expected Confirmation")
-		}
-
-		confirmed, confirmErr := confirm.Validate(message)
-		if confirmErr != nil {
-			logger.Error("Invalid confirmation response",
-				logging.F("error", confirmErr),
-				logging.F("response", message),
-			)
-			return "", confirmErr
-		}
-		if !confirmed {
-			logger.Info("Role assignment cancelled",
-				logging.F("project", state.ProjectName),
-				logging.F("user", state.RoleUser),
-			)
-			state.Reset()
-			return "Role assignment cancelled.", nil
-		}
-
-		// Assign role with retry
-		var assignErr error
-		attempts := 0
-		for {
-			assignErr = b.AssignRoles(state.ProjectName, []string{state.RoleUser})
-			if assignErr == nil {
-				break
-			}
-			if !recovery.ShouldRetry(assignErr, attempts) {
-				logger.Error("Failed to assign role",
-					logging.F("error", assignErr),
-					logging.F("attempts", attempts),
-				)
-				return "", assignErr
-			}
-			logger.Warn("Retrying role assignment",
-				logging.F("error", assignErr),
-				logging.F("attempts", attempts),
-			)
-			time.Sleep(recovery.GetRetryDelay(assignErr))
-			attempts++
-		}
-
-		logger.Info("Role assigned",
-			logging.F("project", state.ProjectName),
-			logging.F("user", state.RoleUser),
-			logging.F("role", state.RoleType),
-		)
-		state.Reset()
-		return "Role assigned successfully!", nil
+	case "list-projects":
+		return command.ListProjectsCommand(b, args)
 
 	default:
-		return "", fmt.Errorf("unknown step: %s", state.CurrentStep)
+		// For other commands, call the handler directly
+		if cmd.Handler != nil {
+			return cmd.Handler(b, args)
+		}
+		return fmt.Sprintf("Command '%s' is not implemented yet", cmd.Name), nil
 	}
 }
 
@@ -751,7 +792,40 @@ func (s *ConversationState) Reset() {
 func New(client *nobl9.Client) (*Bot, error) {
 	commandRegistry := command.NewCommandRegistry()
 	
-	logger, err := logging.NewLogger(logging.LevelInfo)
+	// Register all commands
+	commandRegistry.Register(&command.Command{
+		Name:        "help",
+		Aliases:     []string{"h", "?"},
+		Description: "Show available commands or help for a specific command",
+		Usage:       "help [command]",
+		Handler:     command.HelpCommand,
+	})
+	
+	commandRegistry.Register(&command.Command{
+		Name:        "create-project",
+		Aliases:     []string{"create", "new"},
+		Description: "Create a new Nobl9 project",
+		Usage:       "create-project [name]",
+		Handler:     command.CreateProjectCommand,
+	})
+	
+	commandRegistry.Register(&command.Command{
+		Name:        "assign-role",
+		Aliases:     []string{"assign", "role"},
+		Description: "Assign a role to a user in a project",
+		Usage:       "assign-role [project] [user]",
+		Handler:     command.AssignRoleCommand,
+	})
+	
+	commandRegistry.Register(&command.Command{
+		Name:        "list-projects",
+		Aliases:     []string{"list", "ls"},
+		Description: "List available projects",
+		Usage:       "list-projects",
+		Handler:     command.ListProjectsCommand,
+	})
+	
+	logger, err := logging.NewLogger(logging.LevelWarn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
@@ -766,31 +840,47 @@ func New(client *nobl9.Client) (*Bot, error) {
 
 // Start starts the bot and runs the interactive CLI
 func (b *Bot) Start(ctx context.Context) error {
-	fmt.Println("Welcome to Nobl9 Project Bot!")
-	fmt.Println("Type 'help' for available commands or 'quit' to exit.")
+	fmt.Println(b.getWelcomeMessage())
+	fmt.Println()
+	
+	// Initialize conversation state for CLI
+	response, err := b.HandleMessage("cli", "start")
+	if err == nil && response != "" {
+		// Don't print the welcome message twice
+	}
+	
+	scanner := bufio.NewScanner(os.Stdin)
 	
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Bot shutting down...")
+			fmt.Println("\n👋 Thanks for using Nobl9 Project Bot! Goodbye!")
 			return nil
 		default:
-			// Simple CLI interface for now
 			fmt.Print("> ")
-			var input string
-			fmt.Scanln(&input)
+			
+			if !scanner.Scan() {
+				if scanner.Err() != nil {
+					fmt.Printf("❌ Error reading input: %v\n", scanner.Err())
+				}
+				continue
+			}
+			
+			input := strings.TrimSpace(scanner.Text())
+			if input == "" {
+				continue
+			}
 			
 			if input == "quit" || input == "exit" {
+				fmt.Println("👋 Thanks for using Nobl9 Project Bot! Goodbye!")
 				return nil
 			}
 			
-			// For now, just echo the input
-			// In a real implementation, this would handle the message
 			response, err := b.HandleMessage("cli", input)
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
+				fmt.Printf("❌ Error: %v\n\n", err)
 			} else {
-				fmt.Println(response)
+				fmt.Printf("%s\n\n", response)
 			}
 		}
 	}

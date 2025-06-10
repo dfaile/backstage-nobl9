@@ -7,15 +7,16 @@ import (
 	"path/filepath"
 )
 
-// Config represents the Nobl9 configuration
+// Config represents the Nobl9 configuration following SDK conventions
 type Config struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	Organization string `json:"organization"`
-	BaseURL      string `json:"base_url"`
+	URL          string `json:"url"` // Changed from BaseURL to URL to match SDK
 }
 
 // DefaultConfigPath returns the default path for the config file
+// Following Nobl9 SDK convention of ~/.nobl9/config.toml, but using JSON for simplicity
 func DefaultConfigPath() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -37,7 +38,7 @@ func LoadConfig(path string) (*Config, error) {
 	// Check if file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return &Config{
-			BaseURL: "https://app.nobl9.com",
+			URL: "https://app.nobl9.com",
 		}, nil
 	}
 
@@ -52,9 +53,9 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Set default base URL if not specified
-	if config.BaseURL == "" {
-		config.BaseURL = "https://app.nobl9.com"
+	// Set default URL if not specified
+	if config.URL == "" {
+		config.URL = "https://app.nobl9.com"
 	}
 
 	return &config, nil

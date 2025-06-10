@@ -1,0 +1,7 @@
+defaultContext = "daniel"
+
+[contexts.daniel]
+clientId = "your-client-id-here"
+clientSecret = "your-client-secret-here"  
+organization = "daniel"
+url = "https://app.nobl9.com" 

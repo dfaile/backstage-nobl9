@@ -3,11 +3,8 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/dfaile/backstage-nobl9/internal/bot"
 	"github.com/dfaile/backstage-nobl9/internal/config"
@@ -15,12 +12,12 @@ import (
 )
 
 func main() {
-	// Parse command line flags
+	// Command line flags
+	configPath := flag.String("config", "", "Path to configuration file")
 	clientID := flag.String("client-id", "", "Nobl9 client ID")
 	clientSecret := flag.String("client-secret", "", "Nobl9 client secret")
-	org := flag.String("org", "", "Nobl9 organization")
-	baseURL := flag.String("base-url", "", "Nobl9 base URL (default: https://app.nobl9.com)")
-	configPath := flag.String("config", "", "Path to config file (default: ~/.nobl9/config.json)")
+	org := flag.String("organization", "", "Nobl9 organization")
+	baseURL := flag.String("url", "", "Nobl9 base URL")
 	flag.Parse()
 
 	// Load configuration
@@ -40,7 +37,7 @@ func main() {
 		cfg.Organization = *org
 	}
 	if *baseURL != "" {
-		cfg.BaseURL = *baseURL
+		cfg.URL = *baseURL
 	}
 
 	// Validate required configuration
@@ -59,33 +56,33 @@ func main() {
 		log.Printf("Warning: Failed to save config: %v", err)
 	}
 
+	// Set environment variables for the Nobl9 SDK
+	// The SDK uses these standard environment variable names
+	os.Setenv("NOBL9_SDK_CLIENT_ID", cfg.ClientID)
+	os.Setenv("NOBL9_SDK_CLIENT_SECRET", cfg.ClientSecret)
+	os.Setenv("NOBL9_SDK_ORGANIZATION", cfg.Organization)
+	if cfg.URL != "" {
+		os.Setenv("NOBL9_SDK_URL", cfg.URL)
+	}
+
 	// Create Nobl9 client
-	nobl9Client, err := nobl9.NewClient(cfg.ClientID, cfg.ClientSecret, cfg.Organization, cfg.BaseURL)
+	// Pass empty values since the SDK will read from environment variables
+	nobl9Client, err := nobl9.NewClient("", "", "", "")
 	if err != nil {
 		log.Fatalf("Failed to create Nobl9 client: %v", err)
 	}
 
-	// Create bot instance
-	b, err := bot.New(nobl9Client)
+	// Create and start bot
+	slackBot, err := bot.New(nobl9Client)
 	if err != nil {
 		log.Fatalf("Failed to create bot: %v", err)
 	}
 
-	// Create context that can be cancelled
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create context for the bot
+	ctx := context.Background()
 
-	// Handle shutdown signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		fmt.Println("\nShutting down...")
-		cancel()
-	}()
-
-	// Start the bot
-	if err := b.Start(ctx); err != nil {
-		log.Fatalf("Bot error: %v", err)
+	// Start the bot (this is a CLI bot, so it runs interactively)
+	if err := slackBot.Start(ctx); err != nil {
+		log.Fatalf("Bot failed: %v", err)
 	}
 } 
