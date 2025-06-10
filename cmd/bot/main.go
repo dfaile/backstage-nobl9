@@ -7,66 +7,37 @@ import (
 	"os"
 
 	"github.com/dfaile/backstage-nobl9/internal/bot"
-	"github.com/dfaile/backstage-nobl9/internal/config"
 	"github.com/dfaile/backstage-nobl9/internal/nobl9"
 )
 
 func main() {
 	// Command line flags
-	configPath := flag.String("config", "", "Path to configuration file")
 	clientID := flag.String("client-id", "", "Nobl9 client ID")
 	clientSecret := flag.String("client-secret", "", "Nobl9 client secret")
 	org := flag.String("organization", "", "Nobl9 organization")
 	baseURL := flag.String("url", "", "Nobl9 base URL")
 	flag.Parse()
 
-	// Load configuration
-	cfg, err := config.LoadConfig(*configPath)
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	// Override config with command line flags if provided
+	// Set environment variables if command line flags are provided
+	// This allows the Nobl9 SDK to pick them up automatically
 	if *clientID != "" {
-		cfg.ClientID = *clientID
+		os.Setenv("NOBL9_SDK_CLIENT_ID", *clientID)
 	}
 	if *clientSecret != "" {
-		cfg.ClientSecret = *clientSecret
+		os.Setenv("NOBL9_SDK_CLIENT_SECRET", *clientSecret)
 	}
 	if *org != "" {
-		cfg.Organization = *org
+		os.Setenv("NOBL9_SDK_ORGANIZATION", *org)
 	}
 	if *baseURL != "" {
-		cfg.URL = *baseURL
+		os.Setenv("NOBL9_SDK_URL", *baseURL)
 	}
 
-	// Validate required configuration
-	if cfg.ClientID == "" {
-		log.Fatal("Client ID is required")
-	}
-	if cfg.ClientSecret == "" {
-		log.Fatal("Client secret is required")
-	}
-	if cfg.Organization == "" {
-		log.Fatal("Organization is required")
-	}
-
-	// Save updated configuration
-	if err := cfg.Save(); err != nil {
-		log.Printf("Warning: Failed to save config: %v", err)
-	}
-
-	// Set environment variables for the Nobl9 SDK
-	// The SDK uses these standard environment variable names
-	os.Setenv("NOBL9_SDK_CLIENT_ID", cfg.ClientID)
-	os.Setenv("NOBL9_SDK_CLIENT_SECRET", cfg.ClientSecret)
-	os.Setenv("NOBL9_SDK_ORGANIZATION", cfg.Organization)
-	if cfg.URL != "" {
-		os.Setenv("NOBL9_SDK_URL", cfg.URL)
-	}
-
-	// Create Nobl9 client
-	// Pass empty values since the SDK will read from environment variables
+	// Create Nobl9 client using the SDK's built-in configuration system
+	// This will automatically read from:
+	// 1. Environment variables (highest priority)
+	// 2. ~/.nobl9/config.toml (if exists)
+	// 3. Default values
 	nobl9Client, err := nobl9.NewClient("", "", "", "")
 	if err != nil {
 		log.Fatalf("Failed to create Nobl9 client: %v", err)
