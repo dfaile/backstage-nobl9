@@ -1,10 +1,10 @@
-package metrics
+package metrics_test
 
 import (
 	"context"
 	"testing"
 	"time"
-	"backstage-nobl9/internal/metrics"
+	"github.com/dfaile/backstage-nobl9/internal/metrics"
 )
 
 func TestNew(t *testing.T) {

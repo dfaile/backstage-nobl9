@@ -5,7 +5,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
 )
 
 // BotCommander defines the minimal interface for bot operations needed by commands

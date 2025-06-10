@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
 )
 
 // Strategy defines the type of recovery strategy

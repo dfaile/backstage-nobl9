@@ -1,13 +1,13 @@
 package nobl9
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
@@ -115,11 +115,12 @@ func (c *Client) CreateProject(ctx context.Context, name, description string) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal project: %w", err)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -251,11 +252,12 @@ func (c *Client) AssignRoles(ctx context.Context, projectName string, assignment
 		if err != nil {
 			return fmt.Errorf("failed to marshal roles: %w", err)
 		}
-
-		req, err := http.NewRequestWithContext(ctx, "PUT", url, nil)
+		
+		req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewReader(data))
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
+		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {

@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"backstage-nobl9/internal/command"
-	"backstage-nobl9/internal/errors"
-	"backstage-nobl9/internal/interactive"
-	"backstage-nobl9/internal/logging"
-	"backstage-nobl9/internal/nobl9"
-	"backstage-nobl9/internal/recovery"
+	"github.com/dfaile/backstage-nobl9/internal/command"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/interactive"
+	"github.com/dfaile/backstage-nobl9/internal/logging"
+	"github.com/dfaile/backstage-nobl9/internal/nobl9"
+	"github.com/dfaile/backstage-nobl9/internal/recovery"
 )
 
 // ConversationState represents the state of a conversation
@@ -745,4 +745,53 @@ func (s *ConversationState) Reset() {
 	s.CurrentStep = ""
 	s.RoleUser = ""
 	s.RoleType = ""
+}
+
+// New creates a new bot instance
+func New(client *nobl9.Client) (*Bot, error) {
+	commandRegistry := command.NewCommandRegistry()
+	
+	logger, err := logging.NewLogger(logging.LevelInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logger: %w", err)
+	}
+	
+	return &Bot{
+		nobl9Client: client,
+		logger:      logger,
+		commands:    commandRegistry,
+		state:       make(map[string]*ConversationState),
+	}, nil
+}
+
+// Start starts the bot and runs the interactive CLI
+func (b *Bot) Start(ctx context.Context) error {
+	fmt.Println("Welcome to Nobl9 Project Bot!")
+	fmt.Println("Type 'help' for available commands or 'quit' to exit.")
+	
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Bot shutting down...")
+			return nil
+		default:
+			// Simple CLI interface for now
+			fmt.Print("> ")
+			var input string
+			fmt.Scanln(&input)
+			
+			if input == "quit" || input == "exit" {
+				return nil
+			}
+			
+			// For now, just echo the input
+			// In a real implementation, this would handle the message
+			response, err := b.HandleMessage("cli", input)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+			} else {
+				fmt.Println(response)
+			}
+		}
+	}
 } 

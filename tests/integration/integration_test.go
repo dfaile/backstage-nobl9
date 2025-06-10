@@ -1,4 +1,4 @@
-package integration
+package integration_test
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"backstage-nobl9/internal/bot"
-	"backstage-nobl9/internal/nobl9"
-	"backstage-nobl9/internal/logging"
+	"github.com/dfaile/backstage-nobl9/internal/bot"
+	"github.com/dfaile/backstage-nobl9/internal/nobl9"
+	"github.com/dfaile/backstage-nobl9/internal/logging"
 )
 
 var (

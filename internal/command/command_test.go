@@ -1,13 +1,13 @@
-package command
+package command_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"backstage-nobl9/internal/bot"
-	"backstage-nobl9/internal/errors"
-	"backstage-nobl9/internal/nobl9"
+	"github.com/dfaile/backstage-nobl9/internal/bot"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/nobl9"
 )
 
 func TestCommandRegistry(t *testing.T) {

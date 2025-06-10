@@ -1,22 +1,22 @@
-package interactive
+package interactive_test
 
 import (
 	"testing"
 	"time"
-	"backstage-nobl9/internal/interactive"
+	"github.com/dfaile/backstage-nobl9/internal/interactive"
 )
 
 func TestPrompt(t *testing.T) {
 	tests := []struct {
 		name     string
-		prompt   *Prompt
+		prompt   *interactive.Prompt
 		response string
 		want     string
 		wantErr  bool
 	}{
 		{
 			name: "valid option",
-			prompt: NewPrompt("Choose an option", []string{
+			prompt: interactive.NewPrompt("Choose an option", []string{
 				"option1",
 				"option2",
 			}, "option1"),
@@ -26,7 +26,7 @@ func TestPrompt(t *testing.T) {
 		},
 		{
 			name: "default option",
-			prompt: NewPrompt("Choose an option", []string{
+			prompt: interactive.NewPrompt("Choose an option", []string{
 				"option1",
 				"option2",
 			}, "option1"),
@@ -36,7 +36,7 @@ func TestPrompt(t *testing.T) {
 		},
 		{
 			name: "invalid option",
-			prompt: NewPrompt("Choose an option", []string{
+			prompt: interactive.NewPrompt("Choose an option", []string{
 				"option1",
 				"option2",
 			}, "option1"),
@@ -46,7 +46,7 @@ func TestPrompt(t *testing.T) {
 		},
 		{
 			name:     "no options",
-			prompt:   NewPrompt("Enter text", nil, ""),
+			prompt:   interactive.NewPrompt("Enter text", nil, ""),
 			response: "any text",
 			want:     "any text",
 			wantErr:  false,
@@ -70,42 +70,42 @@ func TestPrompt(t *testing.T) {
 func TestConfirmation(t *testing.T) {
 	tests := []struct {
 		name     string
-		confirm  *Confirmation
+		confirm  *interactive.Confirmation
 		response string
 		want     bool
 		wantErr  bool
 	}{
 		{
 			name:     "yes response",
-			confirm:  NewConfirmation("Continue?", true),
+			confirm:  interactive.NewConfirmation("Continue?", true),
 			response: "yes",
 			want:     true,
 			wantErr:  false,
 		},
 		{
 			name:     "no response",
-			confirm:  NewConfirmation("Continue?", true),
+			confirm:  interactive.NewConfirmation("Continue?", true),
 			response: "no",
 			want:     false,
 			wantErr:  false,
 		},
 		{
 			name:     "default yes",
-			confirm:  NewConfirmation("Continue?", true),
+			confirm:  interactive.NewConfirmation("Continue?", true),
 			response: "",
 			want:     true,
 			wantErr:  false,
 		},
 		{
 			name:     "default no",
-			confirm:  NewConfirmation("Continue?", false),
+			confirm:  interactive.NewConfirmation("Continue?", false),
 			response: "",
 			want:     false,
 			wantErr:  false,
 		},
 		{
 			name:     "invalid response",
-			confirm:  NewConfirmation("Continue?", true),
+			confirm:  interactive.NewConfirmation("Continue?", true),
 			response: "invalid",
 			want:     false,
 			wantErr:  true,
@@ -127,7 +127,7 @@ func TestConfirmation(t *testing.T) {
 }
 
 func TestProgress(t *testing.T) {
-	progress := NewProgress("Processing", 100)
+	progress := interactive.NewProgress("Processing", 100)
 
 	// Test initial state
 	message := progress.Format()
@@ -150,7 +150,7 @@ func TestProgress(t *testing.T) {
 	}
 
 	// Test custom update delay
-	progress = NewProgress("Processing", 100).WithUpdateDelay(1 * time.Second)
+	progress = interactive.NewProgress("Processing", 100).WithUpdateDelay(1 * time.Second)
 	if progress.UpdateDelay != 1*time.Second {
 		t.Error("Expected custom update delay")
 	}

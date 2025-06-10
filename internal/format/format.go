@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
 )
 
 // FormatPrompt formats a prompt message

@@ -1,4 +1,4 @@
-package nobl9
+package nobl9_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"backstage-nobl9/internal/nobl9"
+	"github.com/dfaile/backstage-nobl9/internal/nobl9"
 )
 
 // MockRateLimiter is a mock implementation of RateLimiter

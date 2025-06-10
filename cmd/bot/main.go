@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Daniel/backstage-nobl9/internal/bot"
-	"github.com/Daniel/backstage-nobl9/internal/config"
-	"github.com/Daniel/backstage-nobl9/internal/nobl9"
+	"github.com/dfaile/backstage-nobl9/internal/bot"
+	"github.com/dfaile/backstage-nobl9/internal/config"
+	"github.com/dfaile/backstage-nobl9/internal/nobl9"
 )
 
 func main() {

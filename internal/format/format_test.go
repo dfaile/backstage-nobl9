@@ -1,10 +1,10 @@
-package format
+package format_test
 
 import (
 	"testing"
 
-	"backstage-nobl9/internal/errors"
-	"backstage-nobl9/internal/nobl9"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/nobl9"
 )
 
 func TestFormatMessage(t *testing.T) {

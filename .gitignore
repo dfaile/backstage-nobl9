@@ -1,0 +1,13 @@
+# Ignore log files
+*.log
+
+# Ignore all files in these folder
+.cursor/
+.dockerignore/
+temp/
+
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+

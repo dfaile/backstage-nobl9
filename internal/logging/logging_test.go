@@ -1,4 +1,4 @@
-package logging
+package logging_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"backstage-nobl9/internal/logging"
+	"github.com/dfaile/backstage-nobl9/internal/logging"
 )
 
 func TestNewLogger(t *testing.T) {

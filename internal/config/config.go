@@ -87,4 +87,9 @@ func SaveConfig(config *Config, path string) error {
 	}
 
 	return nil
+}
+
+// Save saves the configuration to the config file
+func (c *Config) Save() error {
+	return SaveConfig(c, "")
 } 

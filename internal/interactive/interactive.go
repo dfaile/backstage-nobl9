@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"backstage-nobl9/internal/format"
+	"github.com/dfaile/backstage-nobl9/internal/format"
 )
 
 // Prompt represents an interactive prompt

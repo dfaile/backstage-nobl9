@@ -42,7 +42,7 @@ make build
 ## Running
 
 ```bash
-./bin/bot
+./bin/nobl9-bot --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET --org YOUR_ORG
 ```
 
 ## Docker

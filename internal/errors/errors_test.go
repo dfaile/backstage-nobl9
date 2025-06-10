@@ -1,9 +1,10 @@
-package errors
+package errors_test
 
 import (
 	"errors"
 	"testing"
-	"backstage-nobl9/internal/errors"
+
+	"github.com/dfaile/backstage-nobl9/internal/errors"
 )
 
 func TestBotError(t *testing.T) {

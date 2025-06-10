@@ -1,10 +1,10 @@
-package recovery
+package recovery_test
 
 import (
 	"testing"
 	"time"
 
-	"backstage-nobl9/internal/errors"
+	"github.com/dfaile/backstage-nobl9/internal/errors"
 )
 
 func TestNewRecovery(t *testing.T) {
