@@ -22,7 +22,7 @@ Create `~/.nobl9/config.toml`:
 ```toml
 defaultContext = "default"
 [contexts]
-  [contexts.daniel]
+  [contexts.default]
     clientId = "YOUR_CLIENT_ID"
     clientSecret = "YOUR_CLIENT_SECRET"
     url = "https://app.nobl9.com"
