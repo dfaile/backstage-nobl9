@@ -17,13 +17,17 @@ A chat bot for managing Nobl9 projects and user roles through the Nolb9 SDK.
 The bot uses the official Nobl9 SDK configuration system. You can configure it in several ways:
 
 #### Option A: Configuration File (Recommended)
+Create the file ```~/.nobl9/config.toml```
 
-Create `~/.nobl9/config.toml`:
-```toml
-defaultContext = "daniel"
+```defaultContext = "default"
 
-url = "https://app.nobl9.com"
+[contexts]
+  [contexts.default]
+    clientId = "N9_CLIENT_ID"
+    clientSecret = "N9_CLIENT_SECRET"
+    project = "default"
 ```
+
 
 #### Option B: Environment Variables
 
