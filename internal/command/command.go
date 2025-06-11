@@ -4,17 +4,28 @@ import (
 	"fmt"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/dfaile/backstage-nobl9/internal/errors"
 )
+
+// Project represents a Nobl9 project
+type Project struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Owner       string    `json:"owner"`
+	CreatedAt   time.Time `json:"created_at"`
+}
 
 // BotCommander defines the minimal interface for bot operations needed by commands
 // (add methods as needed for command handlers)
 type BotCommander interface {
 	Commands() *CommandRegistry
 	StartConversation(projectName string) error
+	StartRoleAssignment() error  // New method for starting role assignment flow
 	ValidateUser(email string) (bool, error)
 	AssignRoles(project string, users []string) error
+	ListProjects() ([]*Project, error)  // New method for listing projects
 }
 
 // Command represents a bot command
@@ -135,34 +146,69 @@ func CreateProjectCommand(b BotCommander, args []string) (string, error) {
 
 // AssignRoleCommand handles role assignment
 func AssignRoleCommand(b BotCommander, args []string) (string, error) {
-	if len(args) != 2 {
-		return "", errors.NewValidationError("usage: assign-role <project> <user>", nil)
+	// If no arguments provided, start interactive flow
+	if len(args) == 0 {
+		err := b.StartRoleAssignment()
+		if err != nil {
+			return "", err
+		}
+		return "🎯 Let's assign a role to a user! First, which project would you like to assign roles in?", nil
 	}
 
-	project, user := args[0], args[1]
+	// If exactly 2 arguments, handle directly
+	if len(args) == 2 {
+		project, user := args[0], args[1]
 
-	// Validate user
-	exists, err := b.ValidateUser(user)
-	if err != nil {
-		return "", err
-	}
-	if !exists {
-		return "", errors.NewNotFoundError("user not found", nil)
+		// Validate user
+		exists, err := b.ValidateUser(user)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return "", errors.NewNotFoundError("user not found", nil)
+		}
+
+		// Assign role
+		err = b.AssignRoles(project, []string{user})
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("✅ Assigned roles in project '%s' for user: %s", project, user), nil
 	}
 
-	// Assign role
-	err = b.AssignRoles(project, []string{user})
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("✅ Assigned roles in project '%s' for user: %s", project, user), nil
+	// Invalid number of arguments
+	return "", errors.NewValidationError("usage: assign-role [<project> <user>] or just 'assign-role' for interactive mode", nil)
 }
 
 // ListProjectsCommand shows available projects
 func ListProjectsCommand(b BotCommander, args []string) (string, error) {
-	// TODO: Implement project listing when SDK is available
-	return "⏳ Project listing not yet implemented", nil
+	projects, err := b.ListProjects()
+	if err != nil {
+		return "", fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		return "📁 No projects found in your organization.", nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("📋 Found %d project(s):\n\n", len(projects)))
+	
+	for i, project := range projects {
+		sb.WriteString(fmt.Sprintf("🏗️  **%s**", project.Name))
+		if project.Description != "" {
+			sb.WriteString(fmt.Sprintf(" - %s", project.Description))
+		}
+		sb.WriteString("\n")
+		
+		// Add spacing between projects (except the last one)
+		if i < len(projects)-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String(), nil
 }
 
 // DefaultCommand handles unrecognized commands
@@ -188,4 +234,6 @@ func ParseCommand(input string) (*Command, []string, error) {
 	return &Command{
 		Name: name,
 	}, args, nil
-} 
+}
+
+ 

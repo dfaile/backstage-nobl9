@@ -68,13 +68,13 @@ func NewBot(nobl9Client *nobl9.Client, commands *command.CommandRegistry) *Bot {
 		})
 		commands.Register(&command.Command{
 			Name:        "assign-role",
-			Aliases:     []string{"assign", "role"},
+			Aliases:     []string{},
 			Description: "Assign a role to a user in a project",
-			Usage:       "assign-role <project> <user>",
+			Usage:       "assign-role [<project> <user>]",
 			Handler:     command.AssignRoleCommand,
 			Validate: func(args []string) error {
-				if len(args) != 2 {
-					return errors.NewValidationError("usage: assign-role <project> <user>", nil)
+				if len(args) != 0 && len(args) != 2 {
+					return errors.NewValidationError("usage: assign-role [<project> <user>] or just 'assign-role' for interactive mode", nil)
 				}
 				return nil
 			},
@@ -172,7 +172,39 @@ func (b *Bot) parseCommand(input string) (*command.Command, []string) {
 		return nil, nil
 	}
 
-	// Split into fields
+	// Handle special multi-word commands first
+	if strings.HasPrefix(strings.ToLower(input), "assign role") {
+		// Treat "assign role" as "assign-role" command
+		remainingInput := strings.TrimSpace(input[11:]) // Remove "assign role"
+		var args []string
+		if remainingInput != "" {
+			args = strings.Fields(remainingInput)
+		}
+		if cmd, exists := b.commands.Get("assign-role"); exists {
+			return cmd, args
+		}
+	}
+
+	if strings.HasPrefix(strings.ToLower(input), "create project") {
+		// Treat "create project" as "create-project" command
+		remainingInput := strings.TrimSpace(input[14:]) // Remove "create project"
+		var args []string
+		if remainingInput != "" {
+			args = strings.Fields(remainingInput)
+		}
+		if cmd, exists := b.commands.Get("create-project"); exists {
+			return cmd, args
+		}
+	}
+
+	if strings.HasPrefix(strings.ToLower(input), "list projects") {
+		// Treat "list projects" as "list-projects" command
+		if cmd, exists := b.commands.Get("list-projects"); exists {
+			return cmd, []string{}
+		}
+	}
+
+	// Split into fields for normal command parsing
 	fields := strings.Fields(input)
 	if len(fields) == 0 {
 		return nil, nil
@@ -719,12 +751,45 @@ func (b *Bot) ValidateUser(email string) (bool, error) {
 // AssignRoles assigns roles to users in a project
 func (b *Bot) AssignRoles(project string, users []string) error {
 	ctx := context.Background()
-	// Convert users slice to map with empty roles
+	
+	// Get the current conversation state to determine the role type
+	state, exists := b.GetConversationState("cli")
+	var roleType string
+	if exists && state.RoleType != "" {
+		roleType = state.RoleType
+	} else {
+		roleType = "member" // Default role
+	}
+	
+	// Convert users slice to map with the selected role
 	assignments := make(map[string][]string)
 	for _, user := range users {
-		assignments[user] = []string{"member"} // Default role
+		assignments[user] = []string{roleType}
 	}
+	
 	return b.nobl9Client.AssignRoles(ctx, project, assignments)
+}
+
+// ListProjects retrieves all projects in the organization
+func (b *Bot) ListProjects() ([]*command.Project, error) {
+	ctx := context.Background()
+	projects, err := b.nobl9Client.ListProjects(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert nobl9.Project to command.Project
+	result := make([]*command.Project, len(projects))
+	for i, proj := range projects {
+		result[i] = &command.Project{
+			Name:        proj.Name,
+			Description: proj.Description,
+			Owner:       proj.Owner,
+			CreatedAt:   proj.CreatedAt,
+		}
+	}
+
+	return result, nil
 }
 
 // ValidateProjectName checks if a project name is valid and available
@@ -811,9 +876,9 @@ func New(client *nobl9.Client) (*Bot, error) {
 	
 	commandRegistry.Register(&command.Command{
 		Name:        "assign-role",
-		Aliases:     []string{"assign", "role"},
+		Aliases:     []string{},
 		Description: "Assign a role to a user in a project",
-		Usage:       "assign-role [project] [user]",
+		Usage:       "assign-role [<project> <user>]",
 		Handler:     command.AssignRoleCommand,
 	})
 	
@@ -884,4 +949,11 @@ func (b *Bot) Start(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// StartRoleAssignment initiates an interactive role assignment flow
+func (b *Bot) StartRoleAssignment() error {
+	// This will be handled by the conversation state in HandleMessage
+	// The method exists to satisfy the BotCommander interface
+	return nil
 } 
