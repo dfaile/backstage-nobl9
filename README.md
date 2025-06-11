@@ -22,12 +22,7 @@ Create `~/.nobl9/config.toml`:
 ```toml
 defaultContext = "daniel"
 
-[contexts.daniel]
-clientId = "your-client-id"
-clientSecret = "your-client-secret"
-organization = "YOUR_ORG"
 url = "https://app.nobl9.com"
-project = "default"
 ```
 
 #### Option B: Environment Variables
